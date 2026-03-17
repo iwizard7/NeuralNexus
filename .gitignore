@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.DS_Store
+.env
+.idea/
+.vscode/
+.gemini/
+.agents/
+node_modules/
+dist/
+build/

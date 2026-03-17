@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuralNexus API</title>
+    <style>
+        :root {
+            --bg: #0d0d12;
+            --accent: #00f2ff;
+            --warn: #ff3e3e;
+            --success: #00ff88;
+            --panel: rgba(22, 22, 28, 0.9);
+            --text: #e0e0e0;
+        }
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; overflow: hidden; display: flex; height: 100vh; width: 100vw; }
+        
+        #canvas-container { flex: 1; position: relative; background: #0d0d12; overflow: hidden; }
+        canvas { display: block; position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+        #ui-panel {
+            width: 320px;
+            background: var(--panel);
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            backdrop-filter: blur(20px);
+            z-index: 100;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 15px;
+        }
+
+        h1 { margin: 0; font-size: 1.4rem; letter-spacing: 1px; color: var(--accent); font-weight: 300; }
+        .lang-btn { align-self: flex-end; background: none; border: 1px solid var(--accent); color: var(--accent); padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; transition: 0.2s; }
+        .lang-btn:hover { background: var(--accent); color: var(--bg); }
+
+        .stat-item { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9rem; }
+        .stat-val { color: var(--accent); font-family: monospace; font-weight: bold; }
+
+        .directive-box { border-left: 3px solid var(--accent); padding-left: 12px; margin-top: 10px; }
+        .directive-title { font-size: 0.7rem; text-transform: uppercase; color: #888; margin-bottom: 5px; }
+        #directive-text { font-size: 0.95rem; font-style: italic; color: #fff; line-height: 1.4; }
+
+        .legend { font-size: 0.8rem; color: #888; display: flex; flex-direction: column; gap: 8px; }
+        .legend-item { display: flex; align-items: center; gap: 10px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; }
+
+        #status-bar { position: absolute; bottom: 20px; left: 20px; font-size: 0.7rem; letter-spacing: 2px; color: var(--accent); opacity: 0.6; display: flex; align-items: center; gap: 8px; }
+        .pulse { width: 6px; height: 6px; background: var(--success); border-radius: 50%; box-shadow: 0 0 10px var(--success); animation: blink 1s infinite; }
+        @keyframes blink { 0% { opacity: 0.2; } 50% { opacity: 1; } 100% { opacity: 0.2; } }
+    </style>
+</head>
+<body>
+    <div id="canvas-container">
+        <canvas id="simCanvas"></canvas>
+        <div id="status-bar">
+            <div class="pulse"></div>
+            <span id="status-text">SYSTEM STATUS: OPTIMAL // NEURAL ENGINE ACTIVE</span>
+            <span id="step-counter" style="margin-left: auto; font-family: monospace;">STEP: 0</span>
+        </div>
+    </div>
+
+    <div id="ui-panel">
+        <button id="lang-switch" class="lang-btn">EN</button>
+        <h1 id="title">NeuralNexus</h1>
+        
+        <div class="glass-card">
+            <div class="stat-item">
+                <span id="lbl-active">Активные юниты:</span>
+                <span id="agent-count" class="stat-val">0</span>
+            </div>
+            <div class="stat-item">
+                <span id="lbl-res">Ресурсы:</span>
+                <span id="res-count" class="stat-val">0</span>
+            </div>
+            <div class="stat-item">
+                <span id="lbl-energy">Средняя энергия:</span>
+                <span id="avg-energy" class="stat-val">0%</span>
+            </div>
+            <div class="stat-item">
+                <span id="lbl-total">Всего собрано:</span>
+                <span id="total-collected" class="stat-val">0</span>
+            </div>
+            <div class="stat-item">
+                <span id="lbl-repro">Размножений:</span>
+                <span id="repro-count" class="stat-val">0</span>
+            </div>
+            <div class="stat-item">
+                <span id="lbl-age">Возраст колонии:</span>
+                <span id="colony-age" class="stat-val">0</span>
+            </div>
+        </div>
+
+        <div class="glass-card">
+            <div class="directive-title" id="lbl-specs">СПЕЦИАЛИСТЫ:</div>
+            <div class="stat-item">
+                <span id="lbl-scouts">Разведчики:</span>
+                <span id="count-scout" class="stat-val" style="color: #00f2ff;">0</span>
+            </div>
+            <div class="stat-item">
+                <span id="lbl-workers">Рабочие:</span>
+                <span id="count-worker" class="stat-val" style="color: #00ff88;">0</span>
+            </div>
+            <div class="stat-item">
+                <span id="lbl-haulers">Грузчики:</span>
+                <span id="count-hauler" class="stat-val" style="color: #ffd700;">0</span>
+            </div>
+        </div>
+
+        <div class="glass-card">
+            <div class="directive-title" id="lbl-pop-chart">ПОПУЛЯЦИЯ:</div>
+            <canvas id="popChart" height="100" style="width: 100%; height: 100px; margin-top: 10px;"></canvas>
+        </div>
+
+        <div class="glass-card directive-box">
+            <div id="lbl-directive" class="directive-title">ГЛОБАЛЬНАЯ ДИРЕКТИВА:</div>
+            <div id="directive-text">Ожидание связи...</div>
+        </div>
+
+        <div class="glass-card">
+            <div class="directive-title" id="lbl-legend">ЛЕГЕНДА:</div>
+            <div class="legend">
+                <div class="legend-item"><div class="dot" style="background: var(--accent);"></div> <span id="leg-robot">Робот (Поиск)</span></div>
+                <div class="legend-item"><div class="dot" style="background: var(--success);"></div> <span id="leg-harvest">Робот (Сбор)</span></div>
+                <div class="legend-item"><div class="dot" style="background: var(--warn);"></div> <span id="leg-comp">Конкуренция</span></div>
+                <div class="legend-item"><div class="dot" style="background: #ffffff;"></div> <span id="leg-nest">Гнездо (База)</span></div>
+                <div class="legend-item"><div class="dot" style="background: #ff00ff;"></div> <span id="leg-pred">Хищник (Враг)</span></div>
+                <div class="legend-item"><div class="dot" style="background: #ffd700;"></div> <span id="leg-res">Ресурс</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const ui = {
+            robotCount: document.getElementById('agent-count'),
+            resCount: document.getElementById('res-count'),
+            avgEnergy: document.getElementById('avg-energy'),
+            directive: document.getElementById('directive-text')
+        };
+
+        const i18n = {
+            ru: {
+                title: "NeuralNexus",
+                active: "Активные юниты:",
+                res: "Ресурсы:",
+                energy: "Средняя энергия:",
+                directive: "ГЛОБАЛЬНАЯ ДИРЕКТИВА:",
+                status: "СИСТЕМА: ОПТИМАЛЬНО // НЕЙРОСЕТЬ АКТИВНА",
+                legend: "ЛЕГЕНДА:",
+                legRobot: "Робот (Поиск)",
+                legHarvest: "Робот (Сбор)",
+                legComp: "Конкуренция",
+                legRes: "Ресурс",
+                legPred: "Хищник (Враг)",
+                legNest: "Гнездо (База)",
+                total: "Всего собрано:",
+                repro: "Размножений:",
+                age: "Возраст колонии:",
+                specs: "СПЕЦИАЛИСТЫ:",
+                scouts: "Разведчики:",
+                workers: "Рабочие:",
+                haulers: "Грузчики:",
+                chart: "ПОПУЛЯЦИЯ:"
+            },
+            en: {
+                title: "NeuralNexus",
+                active: "Active Units:",
+                res: "Resources:",
+                energy: "Average Energy:",
+                directive: "GLOBAL DIRECTIVE:",
+                status: "SYSTEM: OPTIMAL // NEURAL ENGINE ACTIVE",
+                legend: "LEGEND:",
+                legRobot: "Robot (Search)",
+                legHarvest: "Robot (Harvest)",
+                legComp: "Competition",
+                legRes: "Resource",
+                legPred: "Predator (Enemy)",
+                legNest: "Nest (Base)",
+                total: "Total Collected:",
+                repro: "Reproductions:",
+                age: "Colony Age:",
+                specs: "SPECIALISTS:",
+                scouts: "Scouts:",
+                workers: "Workers:",
+                haulers: "Haulers:",
+                chart: "POPULATION:"
+            }
+        };
+        let currentLang = 'ru';
+
+        function resize() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        document.getElementById('lang-switch').addEventListener('click', () => {
+            currentLang = currentLang === 'ru' ? 'en' : 'ru';
+            document.getElementById('lang-switch').innerText = currentLang === 'ru' ? 'EN' : 'RU';
+            updateLang();
+        });
+
+        function updateLang() {
+            const t = i18n[currentLang];
+            document.getElementById('title').innerText = t.title;
+            document.getElementById('lbl-active').innerText = t.active;
+            document.getElementById('lbl-res').innerText = t.res;
+            document.getElementById('lbl-energy').innerText = t.energy;
+            document.getElementById('lbl-directive').innerText = t.directive;
+            document.getElementById('status-text').innerText = t.status;
+            document.getElementById('lbl-legend').innerText = t.legend;
+            document.getElementById('leg-robot').innerText = t.legRobot;
+            document.getElementById('leg-harvest').innerText = t.legHarvest;
+            document.getElementById('leg-comp').innerText = t.legComp;
+            document.getElementById('leg-res').innerText = t.legRes;
+            document.getElementById('leg-pred').innerText = t.legPred;
+            document.getElementById('leg-nest').innerText = t.legNest || "Гнездо";
+            document.getElementById('lbl-total').innerText = t.total;
+            document.getElementById('lbl-repro').innerText = t.repro;
+            document.getElementById('lbl-age').innerText = t.age;
+            document.getElementById('lbl-specs').innerText = t.specs;
+            document.getElementById('lbl-scouts').innerText = t.scouts;
+            document.getElementById('lbl-workers').innerText = t.workers;
+            document.getElementById('lbl-haulers').innerText = t.haulers;
+            document.getElementById('lbl-pop-chart').innerText = t.chart;
+        }
+
+        let agents = [];
+        const ws = new WebSocket('ws://localhost:8000/ws');
+        
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                agents = data.agents;
+                ui.directive.innerText = data.directive;
+                document.getElementById('step-counter').innerText = 'STEP: ' + data.step;
+                
+                // Optimized Stats
+                let robotCount = 0;
+                let resCount = 0;
+                let totalEnergy = 0;
+                
+                agents.forEach(a => {
+                    if (a.type === 'robot') {
+                        robotCount++;
+                        totalEnergy += a.energy;
+                    } else if (a.type === 'resource') {
+                        resCount++;
+                    }
+                });
+
+                ui.robotCount.innerText = robotCount;
+                ui.resCount.innerText = resCount;
+                ui.avgEnergy.innerText = robotCount ? Math.round(totalEnergy / robotCount) + '%' : '0%';
+
+                if (data.stats) {
+                    document.getElementById('total-collected').innerText = Math.round(data.stats.total_collected);
+                    document.getElementById('repro-count').innerText = data.stats.reproductions;
+                    document.getElementById('colony-age').innerText = data.stats.age;
+                    
+                    if (data.stats.role_counts) {
+                        document.getElementById('count-scout').innerText = data.stats.role_counts.scout;
+                        document.getElementById('count-worker').innerText = data.stats.role_counts.worker;
+                        document.getElementById('count-hauler').innerText = data.stats.role_counts.hauler;
+                        updateChart(data.stats.role_counts);
+                    }
+                }
+            } catch (e) {
+                console.error("Data parse error:", e);
+            }
+        };
+
+        ws.onclose = () => {
+            document.getElementById('status-text').innerText = "SYSTEM: DISCONNECTED // RECONNECTING...";
+            setTimeout(() => location.reload(), 3000);
+        };
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw Grid
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+            ctx.lineWidth = 1;
+            for(let i=0; i<canvas.width; i+=40) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+            }
+            for(let i=0; i<canvas.height; i+=40) {
+                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke();
+            }
+
+            agents.forEach(a => {
+                const x = (a.pos[0] / 100) * canvas.width;
+                const y = (a.pos[1] / 100) * canvas.height;
+
+                if (a.type === 'robot') {
+                    const radius = a.role === 'hauler' ? 7 : (a.role === 'scout' ? 3 : 5);
+                    let color = '#00f2ff'; // worker/default
+                    if (a.role === 'scout') color = '#00f2ff';
+                    if (a.role === 'hauler') color = '#ffd700';
+                    if (a.role === 'worker') color = '#00ff88';
+
+                    if (a.state === 'competing') {
+                        ctx.fillStyle = '#ff3e3e';
+                    } else if (a.state === 'harvesting' || a.state === 'delivering') {
+                        ctx.fillStyle = color;
+                        ctx.shadowBlur = 10;
+                        ctx.shadowColor = color;
+                    } else {
+                        ctx.fillStyle = color;
+                    }
+
+                    ctx.beginPath();
+                    if (a.role === 'scout') {
+                        // Diamond shape for scouts
+                        ctx.moveTo(x, y - radius);
+                        ctx.lineTo(x + radius, y);
+                        ctx.lineTo(x, y + radius);
+                        ctx.lineTo(x - radius, y);
+                    } else if (a.role === 'hauler') {
+                        // Square for haulers
+                        ctx.rect(x - radius, y - radius, radius*2, radius*2);
+                    } else {
+                        ctx.arc(x, y, radius, 0, Math.PI * 2);
+                    }
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+
+                    // Shouting (communication) visual effect
+                    if (a.shouting) {
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                        ctx.setLineDash([2, 4]);
+                        ctx.beginPath();
+                        ctx.arc(x, y, 20, 0, Math.PI * 2);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    }
+
+                    // Carrying bar
+                    if (a.carrying > 0) {
+                        ctx.fillStyle = '#00ff88';
+                        ctx.fillRect(x - 10, y - radius - 6, (a.carrying / a.capacity) * 20, 3);
+                    }
+
+                    // Simple energy line
+                    ctx.fillStyle = 'rgba(255,255,255,0.1)';
+                    ctx.fillRect(x - 10, y + radius + 3, 20, 2);
+                    ctx.fillStyle = a.energy > 30 ? '#00ff88' : '#ff3e3e';
+                    ctx.fillRect(x - 10, y + radius + 3, Math.min(20, (a.energy / 100) * 20), 2);
+                } else if (a.type === 'resource') {
+                    ctx.fillStyle = '#ffd700';
+                    ctx.beginPath();
+                    ctx.rect(x-4, y-4, 8, 8);
+                    ctx.fill();
+                } else if (a.type === 'enemy') {
+                    ctx.fillStyle = '#ff00ff';
+                    ctx.beginPath();
+                    ctx.moveTo(x, y - 8);
+                    ctx.lineTo(x + 6, y + 6);
+                    ctx.lineTo(x - 6, y + 6);
+                    ctx.closePath();
+                    ctx.fill();
+                } else if (a.type === 'nest') {
+                    // Nest drawing
+                    const size = 15 + (a.level * 5);
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 2;
+                    
+                    // Outer Glow
+                    ctx.shadowBlur = 20;
+                    ctx.shadowColor = '#ffffff';
+                    
+                    ctx.beginPath();
+                    // Hexagon
+                    for (let i = 0; i < 6; i++) {
+                        const angle = i * Math.PI / 3;
+                        const px = x + size * Math.cos(angle);
+                        const py = y + size * Math.sin(angle);
+                        if (i === 0) ctx.moveTo(px, py);
+                        else ctx.lineTo(px, py);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+
+                    // Progress ring
+                    ctx.strokeStyle = '#00ff88';
+                    ctx.beginPath();
+                    ctx.arc(x, y, size + 5, -Math.PI/2, -Math.PI/2 + (Math.PI * 2 * a.progress));
+                    ctx.stroke();
+
+                    // Level text
+                    ctx.fillStyle = '#fff';
+                    ctx.font = 'bold 12px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('LVL ' + a.level, x, y + 5);
+                }
+            });
+
+            requestAnimationFrame(draw);
+        }
+
+        // Simple Chart Logic
+        const chartCanvas = document.getElementById('popChart');
+        const cctx = chartCanvas.getContext('2d');
+        let history = [];
+
+        function updateChart(counts) {
+            history.push({...counts});
+            if (history.length > 50) history.shift();
+            
+            cctx.clearRect(0, 0, chartCanvas.width, chartCanvas.height);
+            const w = chartCanvas.width;
+            const h = chartCanvas.height;
+            const maxVal = 60; // Slightly higher ceiling
+
+            // Draw a subtle grid for the chart
+            cctx.strokeStyle = 'rgba(255,255,255,0.05)';
+            cctx.lineWidth = 1;
+            for(let j=0; j<=3; j++) {
+                const gy = h - (j/3)*h;
+                cctx.beginPath(); cctx.moveTo(0, gy); cctx.lineTo(w, gy); cctx.stroke();
+            }
+
+            const drawLine = (key, color) => {
+                cctx.strokeStyle = color;
+                cctx.lineWidth = 2;
+                cctx.shadowBlur = 5;
+                cctx.shadowColor = color;
+                cctx.beginPath();
+                history.forEach((data, i) => {
+                    const x = (i / (history.length - 1 || 1)) * w;
+                    const y = h - ( (data[key] || 0) / maxVal) * h;
+                    if (i === 0) cctx.moveTo(x, y);
+                    else cctx.lineTo(x, y);
+                });
+                cctx.stroke();
+                cctx.shadowBlur = 0;
+            };
+
+            drawLine('scout', '#00f2ff');
+            drawLine('worker', '#00ff88');
+            drawLine('hauler', '#ffd700');
+        }
+
+        draw();
+        updateLang();
+    </script>
+</body>
+</html>

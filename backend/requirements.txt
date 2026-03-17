@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+mesa
+numpy
+torch
+mlx
+mlx-lm
+python-multipart
+websockets
