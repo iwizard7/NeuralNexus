@@ -211,28 +211,37 @@
         });
 
         function updateLang() {
-            const t = i18n[currentLang];
-            document.getElementById('title').innerText = t.title;
-            document.getElementById('lbl-active').innerText = t.active;
-            document.getElementById('lbl-res').innerText = t.res;
-            document.getElementById('lbl-energy').innerText = t.energy;
-            document.getElementById('lbl-directive').innerText = t.directive;
-            document.getElementById('status-text').innerText = t.status;
-            document.getElementById('lbl-legend').innerText = t.legend;
-            document.getElementById('leg-robot').innerText = t.legRobot;
-            document.getElementById('leg-harvest').innerText = t.legHarvest;
-            document.getElementById('leg-comp').innerText = t.legComp;
-            document.getElementById('leg-res').innerText = t.legRes;
-            document.getElementById('leg-pred').innerText = t.legPred;
-            document.getElementById('leg-nest').innerText = t.legNest || "Гнездо";
-            document.getElementById('lbl-total').innerText = t.total;
-            document.getElementById('lbl-repro').innerText = t.repro;
-            document.getElementById('lbl-age').innerText = t.age;
-            document.getElementById('lbl-specs').innerText = t.specs;
-            document.getElementById('lbl-scouts').innerText = t.scouts;
-            document.getElementById('lbl-workers').innerText = t.workers;
-            document.getElementById('lbl-haulers').innerText = t.haulers;
-            document.getElementById('lbl-pop-chart').innerText = t.chart;
+            try {
+                const t = i18n[currentLang];
+                const set = (id, text) => {
+                    const el = document.getElementById(id);
+                    if (el) el.innerText = text;
+                };
+
+                set('title', t.title);
+                set('lbl-active', t.active);
+                set('lbl-res', t.res);
+                set('lbl-energy', t.energy);
+                set('lbl-directive', t.directive);
+                set('status-text', t.status);
+                set('lbl-legend', t.legend);
+                set('leg-robot', t.legRobot);
+                set('leg-harvest', t.legHarvest);
+                set('leg-comp', t.legComp);
+                set('leg-res', t.legRes);
+                set('leg-pred', t.legPred);
+                set('leg-nest', t.legNest || "Nest");
+                set('lbl-total', t.total);
+                set('lbl-repro', t.repro);
+                set('lbl-age', t.age);
+                set('lbl-specs', t.specs);
+                set('lbl-scouts', t.scouts);
+                set('lbl-workers', t.workers);
+                set('lbl-haulers', t.haulers);
+                set('lbl-pop-chart', t.chart);
+            } catch (e) {
+                console.error("Language update error:", e);
+            }
         }
 
         let agents = [];
